@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频和文本输入页面</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/colorui@1.5.1/dist/colorui.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #f0f4f8; /* 背景颜色 */
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+        }
+        .videos {
+            display: flex;
+            justify-content: space-between;
+            flex: 2; /* 上半部分占据较大空间 */
+            padding: 10px;
+        }
+        .video-wrapper {
+            display: flex;
+            flex-direction: column; /* 让内容垂直排列 */
+            align-items: center; /* 让内容居中 */
+            width: 45%; /* 每个视频框占45%宽度 */
+            height: 400px; /* 确保视频框高度为100% */
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+            background-color: #ffffff; /* 视频框背景色 */
+        }
+        video, canvas {
+            width: 100%; /* 视频框宽度为100% */
+            height: auto; /* 视频框高度自动适应 */
+            border-radius: 8px;
+        }
+        .input-section {
+            flex: 1; /* 下半部分占据较小空间 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff; /* 背景颜色 */
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+            padding: 20px;
+        }
+        .input-section input[type="text"] {
+            width: 60%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc; /* 边框颜色 */
+            border-radius: 5px;
+            margin-right: 10px; /* 输入框与按钮之间的间距 */
+            transition: border-color 0.3s; /* 边框颜色过渡效果 */
+        }
+        .input-section input[type="text"]:focus {
+            border-color: #007bff; /* 输入框聚焦时的边框颜色 */
+            outline: none; /* 移除默认焦点样式 */
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* 自定义焦点阴影 */
+        }
+        .camera-section {
+            display: flex;
+            justify-content: center; /* 使按钮居中 */
+            margin-bottom: 10px; /* 按钮与视频框的间距 */
+        }
+        .camera-button {
+            background-color: #ffffff; /* 按钮背景颜色 */
+            color: #000000; /* 按钮文字颜色 */
+            border: 1px solid #000000; /* 边框颜色 */
+            border-radius: 5px; /* 圆角 */
+            padding: 10px 20px; /* 内边距 */
+            cursor: pointer; /* 光标变为手形 */
+            font-size: 16px; /* 字体大小 */
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s; /* 添加过渡效果 */
+        }
+        .camera-button:hover {
+            background-color: #000000; /* 悬停效果 */
+            color: white; /* 悬停时文字颜色 */
+            border-color: #000000; /* 悬停时边框颜色 */
+        }
+        .send-button {
+            padding: 10px 20px; /* 内边距 */
+            border: 1px solid #000000; /* 边框颜色 */
+            border-radius: 5px; /* 圆角 */
+            background-color: #ffffff; /* 按钮背景颜色 */
+            color: #000000; /* 按钮文字颜色 */
+            font-size: 16px; /* 字体大小 */
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s; /* 添加过渡效果 */
+        }
+        .send-button:hover {
+            background-color: #000000; /* 悬停效果 */
+            color: white; /* 悬停时文字颜色 */
+            border-color: #000000; /* 悬停时边框颜色 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="camera-section">
+        <button class="camera-button" id="openCameraButton">打开摄像头</button>
+    </div>
+
+    <div class="videos">
+        <div class="video-wrapper">
+            <video id="video1" autoPlay playsInline muted></video> <!-- 摄像头视频框 -->
+        </div>
+        <div class="video-wrapper">
+            <canvas id="video2"></canvas> <!-- 后端视频框 -->
+        </div>
+    </div>
+
+    <div class="input-section">
+        <input type="text" id="textInput" placeholder="请输入内容..." class="c-input">
+        <button class="c-btn send-button" id="sendTextButton">发送文本</button>
+    </div>
+</div>
+
+<script>
+    const video1 = document.getElementById('video1');
+    const video2Canvas = document.getElementById('video2');
+    const ctx2 = video2Canvas.getContext('2d');
+    let cameraStream;
+    const ws = new WebSocket('ws://2409:891b:f050:479:34d6:8722:7c3a:b794:8081');
+
+    ws.binaryType = 'arraybuffer';  // 指定二进制数据类型
+    let isReceivingData = false; // 用于控制是否接收后端数据
+
+    // 获取用户摄像头视频流
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video1.srcObject = cameraStream; // 将摄像头流直接赋值给 video
+
+            // 等待视频元数据加载完成
+            video1.addEventListener('loadedmetadata', () => {
+                // 根据摄像头视频的实际尺寸调整canvas大小
+                video2Canvas.width = video1.videoWidth;
+                video2Canvas.height = video1.videoHeight;
+            });
+
+            sendFrame(); // 开始发送帧
+        } catch (error) {
+            console.error('无法访问摄像头:', error);
+        }
+    }
+
+    const sendFrame = async () => {
+        try {
+            const tempCanvas = document.createElement('canvas'); // 创建一个临时画布
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = video1.videoWidth; // 设置临时画布宽度
+            tempCanvas.height = video1.videoHeight; // 设置临时画布高度
+
+            // 绘制视频帧
+            tempCtx.drawImage(video1, 0, 0, tempCanvas.width, tempCanvas.height); // 从 video1 获取当前帧并绘制到临时画布
+
+            // 将临时画布转换为 Blob
+            tempCanvas.toBlob(blob => {
+                if (blob) {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(blob); // 发送图像数据到后端
+                    } else {
+                        console.error('WebSocket 连接未打开，无法发送数据');
+                    }
+                }
+            }, 'image/jpeg', 0.8); // 发送为 JPEG 格式
+
+            requestAnimationFrame(sendFrame); // 使用 requestAnimationFrame 循环调用
+        } catch (error) {
+            console.error('发送视频流失败:', error);
+        }
+    };
+
+    ws.onmessage = function(event) {
+        const blob = new Blob([event.data]);
+        const url = URL.createObjectURL(blob);
+        
+        const img = new Image();
+        img.onload = function() {
+            if (isReceivingData) { // 只有在接收数据时才绘制图像
+                ctx2.clearRect(0, 0, video2Canvas.width, video2Canvas.height); // 清空画布
+                ctx2.drawImage(img, 0, 0, video2Canvas.width, video2Canvas.height); // 绘制后端视频流到 canvas
+            }
+            URL.revokeObjectURL(url); // 释放对象 URL
+        };
+        img.src = url; // 将 blob 转换为图像
+    };
+
+    ws.onopen = function() {
+        console.log('WebSocket 连接成功');
+        isReceivingData = true; // 连接成功后，开始接收数据
+    };
+
+    ws.onerror = function(error) {
+        console.error('WebSocket 错误:', error);
+    };
+
+    ws.onclose = function() {
+        console.log('WebSocket 连接已关闭');
+        isReceivingData = false; // 连接关闭后，停止接收数据
+    };
+
+    document.getElementById('openCameraButton').onclick = startCamera;
+
+    // 发送文本到后端
+    document.getElementById('sendTextButton').onclick = function() {
+        const textInput = document.getElementById('textInput').value;
+        if (textInput && ws.readyState === WebSocket.OPEN) {
+            ws.send(textInput); // 发送文本数据到后端
+            document.getElementById('textInput').value = ''; // 清空文本框
+        } else {
+            console.error('WebSocket 未连接或文本框为空');
+        }
+    };
+</script>
+
+</body>
+</html>
