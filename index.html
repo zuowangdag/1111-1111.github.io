@@ -127,7 +127,7 @@
     const video2Canvas = document.getElementById('video2');
     const ctx2 = video2Canvas.getContext('2d');
     let cameraStream;
-    const ws = new WebSocket('ws://2409:891b:f050:479:34d6:8722:7c3a:b794:8081');
+    const ws = new WebSocket('ws://localhost:8081');
     ws.binaryType = 'arraybuffer';  // 指定二进制数据类型
     let isReceivingData = false; // 用于控制是否接收后端数据
 
