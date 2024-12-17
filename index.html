@@ -104,7 +104,7 @@
 
 <div class="container">
     <div class="camera-section">
-        <button class="camera-button" id="openCameraButton">打开摄像头</button>
+        <button class="camera-button" id="toggleCameraButton">打开摄像头</button>
     </div>
 
     <div class="videos">
@@ -127,8 +127,8 @@
     const video2Canvas = document.getElementById('video2');
     const ctx2 = video2Canvas.getContext('2d');
     let cameraStream;
-    const ws = new WebSocket('ws://localhost:8081');
-
+    const ws = new WebSocket('ws://13.114.101.62:8080');
+    
     ws.binaryType = 'arraybuffer';  // 指定二进制数据类型
     let isReceivingData = false; // 用于控制是否接收后端数据
 
@@ -146,8 +146,23 @@
             });
 
             sendFrame(); // 开始发送帧
+            document.getElementById('toggleCameraButton').textContent = '关闭摄像头'; // 更新按钮文本
         } catch (error) {
             console.error('无法访问摄像头:', error);
+        }
+    }
+
+    // 停止摄像头视频流
+    function stopCamera() {
+        const tracks = cameraStream.getTracks();
+        tracks.forEach(track => track.stop()); // 停止所有摄像头轨道
+        video1.srcObject = null; // 断开视频流
+        document.getElementById('toggleCameraButton').textContent = '打开摄像头'; // 更新按钮文本
+         // 清空右侧视频框（canvas）
+        ctx2.clearRect(0, 0, video2Canvas.width, video2Canvas.height);
+        if (ws.readyState === WebSocket.OPEN) {
+            // 停止接收图像帧数据
+            ws.send("STOP_CAMERA"); // 发送停止命令给后端
         }
     }
 
@@ -207,7 +222,13 @@
         isReceivingData = false; // 连接关闭后，停止接收数据
     };
 
-    document.getElementById('openCameraButton').onclick = startCamera;
+    document.getElementById('toggleCameraButton').onclick = function() {
+        if (video1.srcObject) {
+            stopCamera(); // 如果摄像头已开启，则关闭摄像头
+        } else {
+            startCamera(); // 否则开启摄像头
+        }
+    };
 
     // 发送文本到后端
     document.getElementById('sendTextButton').onclick = function() {
