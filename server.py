@@ -31,7 +31,7 @@ async def echo(websocket, path):
 
 # WebSocket 服务器
 async def server():
-    async with websockets.serve(echo, "2409:891b:f050:479:34d6:8722:7c3a:b794", 8081):
+    async with websockets.serve(echo, "0.0.0.0", 8080):
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
